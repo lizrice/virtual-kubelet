@@ -257,12 +257,14 @@ func (rm *ResourceManager) watchSecrets() {
 func (rm *ResourceManager) incrementRefCounters(p *v1.Pod) {
 	for _, c := range p.Spec.Containers {
 		for _, e := range c.Env {
-			if e.ValueFrom.ConfigMapKeyRef != nil {
-				rm.configMapRef[e.ValueFrom.ConfigMapKeyRef.Name]++
-			}
+			if e.ValueFrom != nil {
+				if e.ValueFrom.ConfigMapKeyRef != nil {
+					rm.configMapRef[e.ValueFrom.ConfigMapKeyRef.Name]++
+				}
 
-			if e.ValueFrom.SecretKeyRef != nil {
-				rm.secretRef[e.ValueFrom.SecretKeyRef.Name]++
+				if e.ValueFrom.SecretKeyRef != nil {
+					rm.secretRef[e.ValueFrom.SecretKeyRef.Name]++
+				}
 			}
 		}
 	}
@@ -277,12 +279,14 @@ func (rm *ResourceManager) incrementRefCounters(p *v1.Pod) {
 func (rm *ResourceManager) decrementRefCounters(p *v1.Pod) {
 	for _, c := range p.Spec.Containers {
 		for _, e := range c.Env {
-			if e.ValueFrom.ConfigMapKeyRef != nil {
-				rm.configMapRef[e.ValueFrom.ConfigMapKeyRef.Name]--
-			}
+			if e.ValueFrom != nil {
+				if e.ValueFrom.ConfigMapKeyRef != nil {
+					rm.configMapRef[e.ValueFrom.ConfigMapKeyRef.Name]--
+				}
 
-			if e.ValueFrom.SecretKeyRef != nil {
-				rm.secretRef[e.ValueFrom.SecretKeyRef.Name]--
+				if e.ValueFrom.SecretKeyRef != nil {
+					rm.secretRef[e.ValueFrom.SecretKeyRef.Name]--
+				}
 			}
 		}
 	}
