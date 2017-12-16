@@ -13,4 +13,4 @@ $ curl localhost:8080
 
 ## What's the point?
 
-I'm not sure! 
+[I'm not sure!](https://medium.com/@lizrice/a-silly-virtual-kubelet-71b2ec466bc6) Maybe it's a way of exploring Kubernetes as a 'distributed operating system' that isn't necessarily just about running containerized code. Or maybe it's utterly pointless! 
