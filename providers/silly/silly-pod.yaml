@@ -10,3 +10,8 @@ spec:
     image: liz
   nodeSelector:
     type: virtual-kubelet
+  tolerations:
+  - key: "virtual-kubelet.io/provider"
+    operator: "Equal"
+    value: "silly"
+    effect: "NoSchedule"

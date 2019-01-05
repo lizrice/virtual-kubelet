@@ -10,7 +10,9 @@ deploy:
   kubectl:
     manifests:
     - hack/skaffold/virtual-kubelet/base.yml
-    - hack/skaffold/virtual-kubelet/pod.yml
+    # TODO!! 
+    # - hack/skaffold/virtual-kubelet/pod.yml 
+    - hack/skaffold/virtual-kubelet/silly-pod.yml 
 profiles:
 - name: local
   build:
