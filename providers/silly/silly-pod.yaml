@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liz-silly
+  labels:
+    env: test
+spec:
+  containers:
+  - name: liz
+    image: liz
+  nodeSelector:
+    type: virtual-kubelet
+  tolerations:
+  - key: "virtual-kubelet.io/provider"
+    operator: "Equal"
+    value: "silly"
+    effect: "NoSchedule"
