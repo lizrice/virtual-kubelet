@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liz-tello
+  labels:
+    env: test
+  annotations:
+    flip: back
+spec:
+  containers:
+  - name: liz
+    image: liz
+  nodeSelector:
+    type: virtual-kubelet
+  tolerations:
+  - key: "virtual-kubelet.io/provider"
+    operator: "Equal"
+    value: "tello"
+    effect: "NoSchedule"
