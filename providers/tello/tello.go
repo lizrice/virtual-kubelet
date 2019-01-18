@@ -33,9 +33,11 @@ type TelloProvider struct {
 	pods               map[string]*v1.Pod
 	startTime          time.Time
 	drone              *tello.Driver
-	droneState         string
-	droneStateChan     chan string
+	droneState         state
+	inputChan          chan input
+	timeoutChan        chan bool
 	lastTransitionTime metav1.Time
+	fd                 *tello.FlightData
 	wg                 sync.WaitGroup
 }
 
@@ -64,10 +66,16 @@ func NewProvider(config string, rm *manager.ResourceManager, nodeName, operating
 	p.operatingSystem = operatingSystem
 	p.pods = make(map[string]*v1.Pod)
 	p.startTime = time.Now()
-	p.drone = droneConnect()
-	p.droneStateChan = make(chan string)
+	p.inputChan = make(chan input)
+	p.timeoutChan = make(chan bool)
 
-	go p.updateDroneStatus()
+	p.drone = droneConnect()
+	go p.droneStateMachine()
+	go p.droneTimeoutWatcher()
+
+	// Start trying to connect
+	log.Println("Start trying to connect")
+	p.inputChan <- tryConnection
 
 	return &p, nil
 }
@@ -77,22 +85,9 @@ func (p *TelloProvider) Close() {
 	fmt.Println("Close tello provider - wait for completion")
 	p.Lock()
 	defer p.Unlock()
-	p.droneState = haltState
+	p.inputChan <- halt
 
 	p.wg.Wait()
-}
-
-func (p *TelloProvider) updateDroneStatus() {
-	for {
-		select {
-		case state := <-p.droneStateChan:
-			log.Printf("Drone state changed: %s\n", state)
-			p.Lock()
-			p.droneState = state
-			p.lastTransitionTime = metav1.Now()
-			p.Unlock()
-		}
-	}
 }
 
 // CreatePod accepts a Pod definition and keeps a record of it locally.
@@ -100,11 +95,35 @@ func (p *TelloProvider) CreatePod(ctx context.Context, pod *v1.Pod) error {
 	p.Lock()
 	defer p.Unlock()
 
-	pod.Status.Phase = "Running"
-	p.pods[pod.Name] = pod
+	if p.droneState != ready {
+		return fmt.Errorf("Drone not ready: %s", p.droneState)
+	}
 
-	p.drone.Flip(tello.FlipBack)
-	// TODO: record the start time
+	pod.Status.Phase = "Running"
+	direction, ok := pod.Annotations["flip"]
+	var d tello.FlipType
+	switch direction {
+	case "back":
+		d = tello.FlipBack
+	case "front":
+		d = tello.FlipFront
+	default:
+		ok = false
+	}
+	if !ok {
+		return fmt.Errorf("Need to specify a flip type as an annotation: flip=front or flip=back")
+	}
+
+	startTime := metav1.Now()
+	pod.Status.StartTime = &startTime
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		pod.Status.Phase = "Succeeded"
+	}()
+
+	p.pods[pod.Name] = pod
+	p.drone.Flip(d)
 	return nil
 }
 
@@ -187,11 +206,10 @@ func (p *TelloProvider) Capacity(txc context.Context) v1.ResourceList {
 	p.Lock()
 	defer p.Unlock()
 
-	// TODO: Set something sensible
 	return v1.ResourceList{
 		"cpu":    resource.MustParse("20"),
 		"memory": resource.MustParse("100Gi"),
-		"pods":   resource.MustParse("20"),
+		"pods":   resource.MustParse("1"),
 	}
 }
 
@@ -199,9 +217,9 @@ func (p *TelloProvider) Capacity(txc context.Context) v1.ResourceList {
 func (p *TelloProvider) NodeConditions(ctx context.Context) []v1.NodeCondition {
 	var nc v1.NodeCondition
 
-	nc.Reason = p.droneState
+	nc.Reason = p.droneState.String()
 	switch p.droneState {
-	case takeOffState:
+	case ready:
 		nc.Type = v1.NodeReady
 		nc.Status = v1.ConditionTrue
 		nc.Message = "Tello ready for commands"
@@ -210,14 +228,14 @@ func (p *TelloProvider) NodeConditions(ctx context.Context) []v1.NodeCondition {
 		nc.Type = "NotReady"
 		nc.Status = v1.ConditionFalse
 		switch p.droneState {
-		case initState:
-			nc.Message = "Tello virtual kubelet initializing"
-		case landingState:
-			nc.Message = "Tello landed"
-		case connectedState:
+		case disconnected:
+			nc.Message = "Tello not connected"
+		case connected:
 			nc.Message = "Tello connected, waiting for takeoff"
-		case haltState:
-			nc.Message = "Tello halting"
+		case takingOff:
+			nc.Message = "Tello taking off"
+		case landing:
+			nc.Message = "Tello landing"
 		}
 	}
 

@@ -56,7 +56,7 @@ func getValidStates() (vs validStates) {
 	vs.setState(connected, halt, landing, droneHalt)
 
 	vs.setState(takingOff, tryConnection, takingOff, noOp)
-	vs.setState(takingOff, takeOff, takingOff, noOp)
+	vs.setState(takingOff, takeOff, takingOff, droneWaitForHeight)
 	vs.setState(takingOff, onGround, takingOff, droneTakeOff)
 	vs.setState(takingOff, atHeight, ready, droneReady)
 	vs.setState(takingOff, connectionLost, landing, droneHalt)
