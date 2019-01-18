@@ -5,6 +5,7 @@ exec := $(DOCKER_IMAGE)
 github_repo := virtual-kubelet/virtual-kubelet
 binary := virtual-kubelet
 build_tags := "netgo osusergo $(VK_BUILD_TAGS)"
+SKAFFOLD_YAML := hack/skaffold/virtual-kubelet/skaffold-tello.yml
 
 # comment this line out for quieter things
 #V := 1 # When V is set, print commands and build progress.
@@ -22,7 +23,8 @@ safebuild:
 	$Q docker build --build-arg BUILD_TAGS=$(build_tags) -t $(DOCKER_IMAGE):$(VERSION) .
 
 .PHONY: build
-build: authors
+# build: authors
+build:
 	@echo "Building..."
 	$Q CGO_ENABLED=0 go build -a --tags $(build_tags) -ldflags '-extldflags "-static"' -o bin/$(binary) $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)
 
@@ -132,7 +134,7 @@ skaffold:
 		GOOS=linux GOARCH=amd64 VK_BUILD_TAGS="$(VK_BUILD_TAGS)" $(MAKE) build; \
 	fi
 	@skaffold $(MODE) \
-		-f $(PWD)/hack/skaffold/virtual-kubelet/skaffold.yml \
+		-f $(PWD)/$(SKAFFOLD_YAML)\
 		-p $(PROFILE)
 
 # e2e runs the end-to-end test suite against the Kubernetes cluster targeted by the current kubeconfig.
